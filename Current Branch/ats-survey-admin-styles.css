@@ -1,0 +1,124 @@
+/* ats-survey-admin-styles.css */
+
+/* General Admin Page Spacing */
+.wrap .ats-admin-main-title {
+    font-size: 2.25rem; /* text-3xl */
+    font-weight: bold;
+    margin-top: 24px; /* mt-6 */
+    margin-bottom: 24px; /* mb-6 */
+}
+
+.wrap .ats-admin-subtitle {
+    font-size: 1.5rem; /* text-2xl */
+    font-weight: 600; /* font-semibold */
+    margin-top: 32px; /* mt-8 */
+    margin-bottom: 24px; /* mb-6 */
+}
+
+.wrap .ats-admin-intro-text {
+    margin-bottom: 16px; /* mb-4 */
+}
+
+.ats-admin-table {
+    margin-top: 16px; /* mt-4 */
+    margin-bottom: 32px; /* mb-8 */
+}
+
+.ats-no-questions-message {
+    margin-bottom: 32px; /* mb-8 */
+}
+
+/* Admin Form Styling */
+.ats-admin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px; /* space-y-6 */
+    padding: 24px; /* p-6 */
+    border: 1px solid #e2e8f0; /* border-gray-200 */
+    border-radius: 8px; /* rounded-lg */
+    background-color: #ffffff; /* bg-white */
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
+    margin-top: 32px; /* my-8 */
+    margin-bottom: 32px; /* my-8 */
+}
+
+.ats-form-group {
+    /* No specific padding-bottom or border-bottom here, as the gap handles spacing */
+}
+
+.ats-admin-form .ats-label {
+    display: block;
+    color: #4a5568; /* text-gray-700 */
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 600; /* font-semibold */
+    margin-bottom: 8px; /* mb-2 */
+}
+
+.ats-admin-form .ats-input {
+    width: 100%;
+    padding: 10px 12px; /* px-3 py-2 */
+    border: 1px solid #cbd5e0; /* border-gray-300 */
+    border-radius: 6px; /* rounded-md */
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ats-admin-form .ats-input:focus {
+    border-color: #3b82f6; /* focus:ring-blue-500 */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); /* focus:ring-2 focus:ring-blue-500 */
+}
+
+.ats-admin-form .ats-sort-order-input {
+    max-width: 100px; /* Smaller width for sort order input */
+}
+
+.ats-submit-button-admin {
+    margin-top: 16px !important; /* mt-4, !important to override WP default button styles */
+}
+
+.ats-cancel-button-admin {
+    margin-top: 16px !important; /* mt-4, !important to override WP default button styles */
+    margin-left: 8px; /* space from submit button */
+}
+
+/* Basic styling for WordPress admin notices */
+.notice {
+    margin-top: 16px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-left: 4px solid;
+    background-color: #fff;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+.notice-success {
+    border-color: #46b450;
+}
+.notice-error {
+    border-color: #dc3232;
+}
+/* Custom styles for the dynamic results table columns */
+.ats-results-id {
+    width: 50px;
+}
+
+.ats-results-date {
+    width: 150px;
+}
+
+.ats-results-user {
+    width: 200px;
+}
+
+.ats-results-rating {
+    width: 80px;
+}
+
+.ats-results-comment {
+    width: 300px;
+    white-space: pre-wrap; /* Ensures long text wraps */
+}
+
+/* Fallback for other columns */
+.ats-results-default {
+    width: 100px;
+}

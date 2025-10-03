@@ -1,0 +1,180 @@
+/* ats-survey-frontend-styles.css */
+
+/* Removed body background color from here to prevent global impact */
+
+.ats-survey-container {
+    background-color: #ffffff; /* Reverted to white for the form container */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    max-width: 900px; /* Increased width for more space */
+    margin: 40px auto; /* Increased margin for more space around the container */
+    padding: 32px; /* Increased padding inside the container */
+    border: 1px solid #e2e8f0;
+}
+
+.ats-main-title {
+    display: none; /* Hidden: Removed the opening header as requested */
+    font-size: 2.25rem; /* Equivalent to text-3xl */
+    font-weight: 800; /* Equivalent to font-extrabold */
+    color: #1a202c; /* Equivalent to text-gray-800 */
+    margin-bottom: 32px; /* Increased margin-bottom */
+    text-align: center;
+}
+
+.ats-intro-text {
+    color: #4a5568; /* Equivalent to text-gray-600 */
+    margin-bottom: 40px; /* Increased margin-bottom */
+    text-align: center;
+}
+
+.ats-form {
+    display: flex;
+    flex-direction: column;
+    gap: 32px; /* Increased gap between form groups */
+}
+
+.ats-form-group {
+    padding-bottom: 16px; /* Padding-bottom for spacing */
+    border-bottom: 1px solid #edf2f7; /* Subtle border for separation */
+}
+
+/* Remove border from the last form group */
+.ats-form-group:last-of-type {
+    border-bottom: none;
+}
+
+.ats-label {
+    display: block;
+    color: #4a5568; /* Equivalent to text-gray-700 */
+    font-size: 1rem; /* Equivalent to text-base */
+    font-weight: 600; /* Equivalent to font-semibold */
+    margin-bottom: 12px; /* Increased margin-bottom */
+}
+
+.ats-required-label {
+    color: #ef4444; /* Equivalent to text-red-500 */
+}
+
+.ats-input {
+    width: 100%;
+    padding: 10px 16px; /* px-4 py-2 */
+    border: 1px solid #cbd5e0; /* border-gray-300 */
+    border-radius: 6px; /* rounded-md */
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ats-input:focus {
+    border-color: #820024; /* Pop color on focus */
+    box-shadow: 0 0 0 2px rgba(130, 0, 36, 0.5); /* Pop color shadow on focus */
+}
+
+.ats-short-text,
+.ats-dropdown {
+    max-width: 50%; /* Adjusted width for shorter inputs */
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 640px) { /* Equivalent to sm: breakpoint */
+    .ats-short-text,
+    .ats-dropdown {
+        max-width: 100%; /* Full width on small screens */
+    }
+}
+
+
+.ats-rating-options {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping for smaller screens */
+    align-items: center;
+    gap: 16px; /* space-x-4 */
+}
+
+.ats-radio-label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    margin-bottom: 8px; /* mb-2 */
+}
+
+.ats-radio-input {
+    height: 20px; /* h-5 */
+    width: 20px; /* w-5 */
+    color: #2563eb; /* text-blue-600 */
+    border: 1px solid #cbd5e0;
+    border-radius: 50%; /* Ensure it's round */
+    appearance: none; /* Hide default radio button */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    outline: none;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.ats-radio-input:checked {
+    background-color: #820024; /* Pop color on checked */
+    border-color: #820024; /* Pop color on checked */
+    box-shadow: inset 0 0 0 4px #ffffff; /* Inner circle effect */
+}
+
+.ats-radio-text {
+    margin-left: 8px; /* ml-2 */
+    color: #4a5568; /* text-gray-700 */
+}
+
+.ats-rating-guide {
+    color: #a0aec0; /* text-gray-500 */
+    font-size: 0.875rem; /* text-sm */
+    margin-left: 16px; /* ml-4 */
+}
+
+.ats-submit-button {
+    width: 100%;
+    background-color: #820024 !important; /* Pop color for button with !important */
+    color: #ffffff !important; /* Ensured white text with !important */
+    font-weight: 700; /* font-bold */
+    padding: 12px 16px; /* py-3 px-4 */
+    border-radius: 6px; /* rounded-md */
+    transition: background-color 0.3s ease-in-out, transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    border: none;
+    cursor: pointer;
+    margin-top: 32px; /* mt-8 */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* shadow-md */
+}
+
+.ats-submit-button:hover {
+    background-color: #a00030; /* Slightly lighter pop color on hover */
+    /* Removed: transform: scale(1.02); */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.ats-submit-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(130, 0, 36, 0.5), 0 0 0 4px rgba(130, 0, 36, 0.3); /* Pop color focus ring */
+}
+
+.ats-success-message {
+    color: #16a34a; /* text-green-600 */
+    font-weight: 700; /* font-bold */
+    font-size: 1.125rem; /* text-lg */
+    padding: 16px; /* p-4 */
+    border-radius: 6px; /* rounded-md */
+    background-color: #dcfce7; /* bg-green-100 */
+    margin-bottom: 16px; /* mb-4 */
+    text-align: center;
+}
+
+.ats-error-message {
+    color: #dc2626; /* text-red-600 */
+    font-weight: 700; /* font-bold */
+    font-size: 1.125rem; /* text-lg */
+    padding: 16px; /* p-4 */
+    border-radius: 6px; /* rounded-md */
+    background-color: #fee2e2; /* bg-red-100 */
+    margin-bottom: 16px; /* mb-4 */
+    text-align: center;
+}
+
+.ats-no-questions-message {
+    color: #4a5568; /* text-gray-600 */
+    text-align: center;
+}
