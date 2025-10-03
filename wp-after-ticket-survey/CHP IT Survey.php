@@ -73,7 +73,6 @@ function ats_install() {
     $sql_submissions = "CREATE TABLE $submissions_table (
         id bigint(20) NOT NULL AUTO_INCREMENT,
         user_id bigint(20) DEFAULT 0 NOT NULL,
-        user_name varchar(255) DEFAULT '' NOT NULL,
         submission_date datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
@@ -243,7 +242,6 @@ function ats_survey_shortcode() {
         // Get current user, assuming they are always logged in via SSO
         $current_user = wp_get_current_user();
         $user_id      = $current_user->ID;
-        $user_name    = $current_user->user_login;
 
 
         // Insert new submission record
@@ -251,12 +249,10 @@ function ats_survey_shortcode() {
             $submissions_table,
             array(
                 'user_id'         => $user_id,
-                'user_name'       => $user_name,
                 'submission_date' => current_time( 'mysql' ),
             ),
             array(
                 '%d', // user_id
-                '%s', // user_name
                 '%s'  // submission_date
             )
         );
@@ -698,6 +694,38 @@ function ats_get_summarized_question_text( $question_text ) {
 
 
 /**
+ * Helper function to summarize long question text for a cleaner results table.
+ *
+ * @param string $question_text The full question text.
+ * @return string The summarized question text.
+ */
+function ats_get_summarized_question_text( $question_text ) {
+    switch ( $question_text ) {
+        case 'What is your ticket number?':
+            return 'Ticket #';
+        case 'Who was your technician for this ticket?':
+            return 'Technician';
+        case 'Overall, how would you rate the handling of your issue by the IT department?':
+            return 'Overall Rating';
+        case 'Were you helped in a timely manner?':
+            return 'Timeliness';
+        case 'Was your technician helpful?':
+            return 'Helpfulness';
+        case 'Was your technician courteous?':
+            return 'Courtesy';
+        case 'Did your technician demonstrate a reasonable understanding of your issue?':
+            return 'Understanding';
+        case 'Do you feel we could make an improvement, or have concerns about how your ticket was handled?':
+            return 'Comments';
+        default:
+            // Fallback for new questions, summarize to the first few words
+            $words = explode(' ', $question_text);
+            return implode(' ', array_slice($words, 0, 3)) . '...';
+    }
+}
+
+
+/**
  * Callback for the View Results admin page, now using a dynamic CSS grid.
  */
 function ats_display_view_results_page() {
@@ -713,11 +741,11 @@ function ats_display_view_results_page() {
     // Fetch all questions to use as headers and to map answers
     $questions = $wpdb->get_results( "SELECT id, question_text, question_type FROM {$questions_table} ORDER BY sort_order ASC", ARRAY_A );
 
-    // Fetch all submissions, now including the username
-    $submissions = $wpdb->get_results( "SELECT id, user_name, submission_date FROM {$submissions_table} ORDER BY submission_date DESC", ARRAY_A );
+    // Fetch all submissions, now including the user ID
+    $submissions = $wpdb->get_results( "SELECT id, user_id, submission_date FROM {$submissions_table} ORDER BY submission_date DESC", ARRAY_A );
 
-    // Adjust total columns for the new "Username" column
-    $total_columns = count($questions) + 3; // ID, Date, Username, and all questions
+    // Adjust total columns for the new "Submitted by" column
+    $total_columns = count($questions) + 3; // ID, Date, Submitted by, and all questions
     $grid_template_parts = array();
     for ($i = 0; $i < $total_columns - 1; $i++) {
         $grid_template_parts[] = 'auto';
@@ -775,7 +803,7 @@ function ats_display_view_results_page() {
                 <div class="ats-results-header">
                     <div class="ats-results-cell"><strong>ID</strong></div>
                     <div class="ats-results-cell"><strong>Date</strong></div>
-                    <div class="ats-results-cell"><strong>Username</strong></div>
+                    <div class="ats-results-cell"><strong>Submitted by</strong></div>
                     <?php foreach ( $questions as $question ) : ?>
                         <?php
                             $header_class = '';
@@ -794,7 +822,22 @@ function ats_display_view_results_page() {
                     <div class="ats-results-row">
                         <div class="ats-results-cell"><?php echo esc_html( $submission['id'] ); ?></div>
                         <div class="ats-results-cell"><?php echo esc_html( $submission['submission_date'] ); ?></div>
-                        <div class="ats-results-cell"><?php echo esc_html( $submission['user_name'] ); ?></div>
+                        <div class="ats-results-cell">
+                            <?php
+                                $user_info_text = 'N/A';
+                                if ( ! empty( $submission['user_id'] ) ) {
+                                    $user_data = get_userdata( $submission['user_id'] );
+                                    if ( $user_data ) {
+                                        $user_info_text = sprintf(
+                                            'Username: %s, Display Name: %s',
+                                            esc_html( $user_data->user_login ),
+                                            esc_html( $user_data->display_name )
+                                        );
+                                    }
+                                }
+                                echo $user_info_text;
+                            ?>
+                        </div>
                         <?php
                         // Fetch answers for this specific submission
                         $answers = $wpdb->get_results( $wpdb->prepare(
