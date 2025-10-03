@@ -207,7 +207,9 @@ function ats_enqueue_custom_styles() {
     wp_enqueue_style( 'ats-survey-frontend-styles', plugin_dir_url( __FILE__ ) . 'ats-survey-frontend-styles.css', array(), '2.3' );
     // Conditionally add inline style for body background if the shortcode is present
     if ( is_singular() && has_shortcode( get_post()->post_content, 'after_ticket_survey' ) ) {
-        wp_add_inline_style( 'ats-survey-frontend-styles', 'body { background-color: #c0d7e5 !important; }' );
+        $options = get_option( 'ats_survey_options' );
+        $background_color = isset( $options['background_color'] ) ? $options['background_color'] : '#c0d7e5';
+        wp_add_inline_style( 'ats-survey-frontend-styles', 'body { background-color: ' . esc_attr( $background_color ) . ' !important; }' );
     }
 
     // Enqueue for admin
@@ -294,6 +296,11 @@ function ats_survey_shortcode() {
             echo '<div class="ats-error-message">There was an error submitting your survey. Please try again.</div>';
         }
     } else {
+        // Get survey options
+        $survey_options = get_option( 'ats_survey_options' );
+        $ticket_question_id = isset( $survey_options['ticket_question_id'] ) ? (int) $survey_options['ticket_question_id'] : 0;
+        $technician_question_id = isset( $survey_options['technician_question_id'] ) ? (int) $survey_options['technician_question_id'] : 0;
+
         // Get ticket_id from URL if present
         $prefill_ticket_id = isset($_GET['ticket_id']) ? sanitize_text_field($_GET['ticket_id']) : '';
         // Get tech name from URL if present
@@ -329,8 +336,8 @@ function ats_survey_shortcode() {
                         </label>
 
                         <?php if ( $question['question_type'] === 'short_text' ) :
-                            // Check if this is the 'What is your ticket number?' question and prefill
-                            if ( $question['question_text'] === 'What is your ticket number?' && ! empty( $prefill_ticket_id ) ) {
+                            // Check if this is the ticket number question and prefill
+                            if ( $question['id'] == $ticket_question_id && ! empty( $prefill_ticket_id ) ) {
                                 $input_value = esc_attr( $prefill_ticket_id );
                             }
                         ?>
@@ -357,8 +364,8 @@ function ats_survey_shortcode() {
                             <select id="<?php echo esc_attr( $input_id ); ?>" name="<?php echo esc_attr( $input_name ); ?>" class="ats-input ats-dropdown" <?php echo $required_attr; ?>>
                                 <option value="">-- Select --</option>
                                 <?php foreach ( $options as $option ) :
-                                    // Check if this is the 'Who was your technician for this ticket?' question and prefill
-                                    if ( $question['question_text'] === 'Who was your technician for this ticket?' && ! empty( $prefill_tech_name ) ) {
+                                    // Check if this is the technician question and prefill
+                                    if ( $question['id'] == $technician_question_id && ! empty( $prefill_tech_name ) ) {
                                         if ( strtolower( $option['option_value'] ) === strtolower( $prefill_tech_name ) ) {
                                             $selected_attr = 'selected';
                                         } else {
@@ -438,6 +445,16 @@ function ats_admin_menu() {
         'manage_options', // Admin-level access
         'ats-manage-submissions',
         'ats_display_manage_submissions_page'
+    );
+
+    // Add new submenu for settings
+    add_submenu_page(
+        'ats-survey-main',
+        'After Ticket Survey Settings',
+        'Settings',
+        'manage_options',
+        'ats-survey-settings',
+        'ats_display_settings_page'
     );
 }
 add_action( 'admin_menu', 'ats_admin_menu' );
@@ -664,11 +681,25 @@ function ats_display_manage_questions_page() {
 /**
  * Helper function to summarize long question text for a cleaner results table.
  *
- * @param string $question_text The full question text.
+ * @param array $question The question array containing id and text.
  * @return string The summarized question text.
  */
-function ats_get_summarized_question_text( $question_text ) {
-    switch ( $question_text ) {
+function ats_get_summarized_question_text( $question ) {
+    // Get survey options for dynamic question summaries
+    $survey_options = get_option( 'ats_survey_options' );
+    $ticket_question_id = isset( $survey_options['ticket_question_id'] ) ? (int) $survey_options['ticket_question_id'] : 0;
+    $technician_question_id = isset( $survey_options['technician_question_id'] ) ? (int) $survey_options['technician_question_id'] : 0;
+
+    // Prioritize checking by ID from settings
+    if ( $ticket_question_id > 0 && $question['id'] == $ticket_question_id ) {
+        return 'Ticket #';
+    }
+    if ( $technician_question_id > 0 && $question['id'] == $technician_question_id ) {
+        return 'Technician';
+    }
+
+    // Fallback to text-based matching for backward compatibility and other default questions
+    switch ( $question['question_text'] ) {
         case 'What is your ticket number?':
             return 'Ticket #';
         case 'Who was your technician for this ticket?':
@@ -687,7 +718,7 @@ function ats_get_summarized_question_text( $question_text ) {
             return 'Comments';
         default:
             // Fallback for new questions, summarize to the first few words
-            $words = explode(' ', $question_text);
+            $words = explode(' ', $question['question_text']);
             return implode(' ', array_slice($words, 0, 3)) . '...';
     }
 }
@@ -705,6 +736,11 @@ function ats_display_view_results_page() {
     $questions_table   = $wpdb->prefix . $ats_questions_table_name;
     $submissions_table = $wpdb->prefix . $ats_survey_submissions_table_name;
     $answers_table     = $wpdb->prefix . $ats_survey_answers_table_name;
+
+    // Get survey options
+    $survey_options = get_option( 'ats_survey_options' );
+    $ticket_question_id = isset( $survey_options['ticket_question_id'] ) ? (int) $survey_options['ticket_question_id'] : 0;
+    $ticket_url_base = isset( $survey_options['ticket_url'] ) ? $survey_options['ticket_url'] : admin_url( 'admin.php?page=wpsc-tickets&thread_id=' );
 
     // Fetch all questions to use as headers and to map answers
     $questions = $wpdb->get_results( "SELECT id, question_text, question_type FROM {$questions_table} ORDER BY sort_order ASC", ARRAY_A );
@@ -780,7 +816,7 @@ function ats_display_view_results_page() {
                             }
                         ?>
                         <div class="ats-results-cell <?php echo esc_attr($header_class); ?>">
-                            <strong><?php echo esc_html( ats_get_summarized_question_text( $question['question_text'] ) ); ?></strong>
+                            <strong><?php echo esc_html( ats_get_summarized_question_text( $question ) ); ?></strong>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -824,12 +860,11 @@ function ats_display_view_results_page() {
                                 <?php
                                     $answer_obj = isset( $answers[ $question['id'] ] ) ? $answers[ $question['id'] ] : null;
                                     $answer_value = $answer_obj ? $answer_obj->answer_value : '';
-                                    $summarized_text = ats_get_summarized_question_text($question['question_text']);
 
-                                    // Check if the current question is the 'Ticket #' and the answer is a valid number
-                                    if ( $summarized_text === 'Ticket #' && ! empty( $answer_value ) && is_numeric( $answer_value ) ) {
-                                        // Create a link to the SupportCandy ticket page
-                                        $ticket_url = admin_url( 'admin.php?page=wpsc-tickets&thread_id=' . intval( $answer_value ) );
+                                    // Check if the current question is the ticket question and the answer is a valid number
+                                    if ( $question['id'] == $ticket_question_id && ! empty( $answer_value ) && is_numeric( $answer_value ) ) {
+                                        // Create a link to the ticketing system
+                                        $ticket_url = $ticket_url_base . intval( $answer_value );
                                         echo '<a href="' . esc_url( $ticket_url ) . '" target="_blank">' . esc_html( $answer_value ) . '</a>';
                                     } else {
                                         echo esc_html( $answer_value );
@@ -1148,3 +1183,131 @@ function ats_handle_manage_submissions() {
     exit;
 }
 add_action( 'admin_post_ats_manage_submissions', 'ats_handle_manage_submissions' );
+
+/**
+ * Register settings, sections, and fields for the settings page.
+ */
+function ats_register_settings() {
+    // Register the main setting group
+    register_setting( 'ats-survey-settings-group', 'ats_survey_options' );
+
+    // Add a section for general settings
+    add_settings_section(
+        'ats_general_settings_section',
+        'General Settings',
+        '__return_false', // No callback needed for the section description
+        'ats-survey-settings'
+    );
+
+    // Add fields to the general settings section
+    add_settings_field(
+        'ats_background_color',
+        'Survey Page Background Color',
+        'ats_setting_background_color_callback',
+        'ats-survey-settings',
+        'ats_general_settings_section'
+    );
+
+    add_settings_field(
+        'ats_ticket_question_id',
+        'Ticket Number Question',
+        'ats_setting_ticket_question_callback',
+        'ats-survey-settings',
+        'ats_general_settings_section'
+    );
+
+    add_settings_field(
+        'ats_technician_question_id',
+        'Technician Question',
+        'ats_setting_technician_question_callback',
+        'ats-survey-settings',
+        'ats_general_settings_section'
+    );
+
+    add_settings_field(
+        'ats_ticket_url',
+        'Ticket System Base URL',
+        'ats_setting_ticket_url_callback',
+        'ats-survey-settings',
+        'ats_general_settings_section'
+    );
+}
+add_action( 'admin_init', 'ats_register_settings' );
+
+/**
+ * Callback function to render the background color setting field.
+ */
+function ats_setting_background_color_callback() {
+    $options = get_option( 'ats_survey_options' );
+    $color = isset( $options['background_color'] ) ? $options['background_color'] : '#c0d7e5';
+    echo '<input type="text" name="ats_survey_options[background_color]" value="' . esc_attr( $color ) . '" class="regular-text" />';
+    echo '<p class="description">Enter a hex code for the survey page background color.</p>';
+}
+
+/**
+ * Callback function to render the ticket question setting field.
+ */
+function ats_setting_ticket_question_callback() {
+    global $wpdb;
+    global $ats_questions_table_name;
+    $questions_table = $wpdb->prefix . $ats_questions_table_name;
+    $questions = $wpdb->get_results( "SELECT id, question_text FROM {$questions_table} ORDER BY sort_order ASC", ARRAY_A );
+    $options = get_option( 'ats_survey_options' );
+    $selected_question = isset( $options['ticket_question_id'] ) ? $options['ticket_question_id'] : '';
+
+    echo '<select name="ats_survey_options[ticket_question_id]">';
+    echo '<option value="">-- Select a Question --</option>';
+    foreach ( $questions as $question ) {
+        echo '<option value="' . esc_attr( $question['id'] ) . '" ' . selected( $selected_question, $question['id'], false ) . '>' . esc_html( $question['question_text'] ) . '</option>';
+    }
+    echo '</select>';
+    echo '<p class="description">Select the question that asks for the ticket number.</p>';
+}
+
+/**
+ * Callback function to render the technician question setting field.
+ */
+function ats_setting_technician_question_callback() {
+    global $wpdb;
+    global $ats_questions_table_name;
+    $questions_table = $wpdb->prefix . $ats_questions_table_name;
+    $questions = $wpdb->get_results( "SELECT id, question_text FROM {$questions_table} WHERE question_type = 'dropdown' ORDER BY sort_order ASC", ARRAY_A );
+    $options = get_option( 'ats_survey_options' );
+    $selected_question = isset( $options['technician_question_id'] ) ? $options['technician_question_id'] : '';
+
+    echo '<select name="ats_survey_options[technician_question_id]">';
+    echo '<option value="">-- Select a Question --</option>';
+    foreach ( $questions as $question ) {
+        echo '<option value="' . esc_attr( $question['id'] ) . '" ' . selected( $selected_question, $question['id'], false ) . '>' . esc_html( $question['question_text'] ) . '</option>';
+    }
+    echo '</select>';
+    echo '<p class="description">Select the question that asks for the technician.</p>';
+}
+
+/**
+ * Callback function to render the ticket URL setting field.
+ */
+function ats_setting_ticket_url_callback() {
+    $options = get_option( 'ats_survey_options' );
+    $url = isset( $options['ticket_url'] ) ? $options['ticket_url'] : admin_url( 'admin.php?page=wpsc-tickets&thread_id=' );
+    echo '<input type="text" name="ats_survey_options[ticket_url]" value="' . esc_attr( $url ) . '" class="regular-text" />';
+    echo '<p class="description">Enter the base URL for linking to a ticket. The ticket ID will be appended to this URL.</p>';
+}
+
+/**
+ * Display the settings page.
+ */
+function ats_display_settings_page() {
+    ?>
+    <div class="wrap">
+        <h1>After Ticket Survey Settings</h1>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields( 'ats-survey-settings-group' );
+            do_settings_sections( 'ats-survey-settings' );
+            submit_button();
+            ?>
+        </form>
+    </div>
+    <?php
+}
