@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: After Ticket Survey
- * Description: A powerful and flexible WordPress plugin to create and manage after-ticket surveys. Easily customize questions, collect feedback, and view results directly from your WordPress dashboard.
- * Version:     2.16
+ * Description: A powerful and flexible WordPress plugin to create and manage after-ticket surveys. Capture submitter details, link survey results directly to tickets, and view all feedback from your WordPress dashboard.
+ * Version:     2.17
  * Author:      Philip Edwards & Gemini
  * License:     GPL2
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -660,38 +660,6 @@ function ats_display_manage_questions_page() {
     </div>
     <?php
 }
-
-/**
- * Helper function to summarize long question text for a cleaner results table.
- *
- * @param string $question_text The full question text.
- * @return string The summarized question text.
- */
-function ats_get_summarized_question_text( $question_text ) {
-    switch ( $question_text ) {
-        case 'What is your ticket number?':
-            return 'Ticket #';
-        case 'Who was your technician for this ticket?':
-            return 'Technician';
-        case 'Overall, how would you rate the handling of your issue by the IT department?':
-            return 'Overall Rating';
-        case 'Were you helped in a timely manner?':
-            return 'Timeliness';
-        case 'Was your technician helpful?':
-            return 'Helpfulness';
-        case 'Was your technician courteous?':
-            return 'Courtesy';
-        case 'Did your technician demonstrate a reasonable understanding of your issue?':
-            return 'Understanding';
-        case 'Do you feel we could make an improvement, or have concerns about how your ticket was handled?':
-            return 'Comments';
-        default:
-            // Fallback for new questions, summarize to the first few words
-            $words = explode(' ', $question_text);
-            return implode(' ', array_slice($words, 0, 3)) . '...';
-    }
-}
-
 
 /**
  * Helper function to summarize long question text for a cleaner results table.
