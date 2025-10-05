@@ -533,18 +533,18 @@ function ats_display_main_admin_page() {
             <h3>2. Manage Your Survey Questions</h3>
             <p>You have full control over the questions in your survey. To add new questions, edit existing ones, or remove questions:</p>
             <ol>
-                <li>Go to **After Ticket Survey &rarr; Manage Questions** in your WordPress admin sidebar.</li>
+                <li>Go to <strong>After Ticket Survey &rarr; Manage Questions</strong> in your WordPress admin sidebar.</li>
                 <li>Here, you'll see a list of all your current survey questions.</li>
                 <li>Use the "Add New Question" form to create new questions. You can choose from different types:
                     <ul>
-                        <li>**Short Text:** For brief answers like a ticket number or a single word.</li>
-                        <li>**Long Text:** For detailed feedback or comments.</li>
-                        <li>**Rating (1-5):** For questions requiring a numerical rating (e.g., satisfaction level).</li>
-                        <li>**Dropdown:** For questions with predefined options, like a list of technicians.</li>
+                        <li><strong>Short Text:</strong> For brief answers like a ticket number or a single word.</li>
+                        <li><strong>Long Text:</strong> For detailed feedback or comments.</li>
+                        <li><strong>Rating (1-5):</strong> For questions requiring a numerical rating (e.g., satisfaction level).</li>
+                        <li><strong>Dropdown:</strong> For questions with predefined options, like a list of technicians.</li>
                     </ul>
                 </li>
                 <li>For "Dropdown" questions, remember to enter your options separated by commas (e.g., "Option 1, Option 2").</li>
-                <li>You can also **Edit** or **Delete** existing questions using the buttons next to each question in the table.</li>
+                <li>You can also <strong>Edit</strong> or <strong>Delete</strong> existing questions using the buttons next to each question in the table.</li>
             </ol>
         </div>
 
@@ -552,9 +552,9 @@ function ats_display_main_admin_page() {
             <h3>3. View Survey Results</h3>
             <p>Once users start submitting surveys, you can view all the collected feedback:</p>
             <ol>
-                <li>Go to **After Ticket Survey &rarr; View Results** in your WordPress admin sidebar.</li>
+                <li>Go to <strong>After Ticket Survey &rarr; View Results</strong> in your WordPress admin sidebar.</li>
                 <li>This page will display a table with all survey submissions, showing each user's answers to your questions.</li>
-                <li>*(Note: The "View Results" page is currently a basic display. Future updates may include advanced filtering and export options.)*</li>
+                <li><em>(Note: The "View Results" page is currently a basic display. Future updates may include advanced filtering and export options.)</em></li>
             </ol>
         </div>
 
@@ -562,7 +562,7 @@ function ats_display_main_admin_page() {
             <h3>4. Configure Your Settings</h3>
             <p>The settings page allows you to customize how the plugin works to better fit your needs:</p>
             <ol>
-                <li>Go to **After Ticket Survey &rarr; Settings** in your WordPress admin sidebar.</li>
+                <li>Go to <strong>After Ticket Survey &rarr; Settings</strong> in your WordPress admin sidebar.</li>
                 <li>Here, you can configure the following options:
                     <ul>
                         <li><strong>Survey Page Background Color:</strong> Change the background color of the survey page using an interactive color picker to match your site's theme.</li>
