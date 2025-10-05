@@ -200,9 +200,9 @@ function ats_install() {
 register_activation_hook( __FILE__, 'ats_install' );
 
 /**
- * Enqueue custom CSS for styling the survey form and admin pages.
+ * Enqueue custom CSS for styling the survey form on the frontend.
  */
-function ats_enqueue_custom_styles() {
+function ats_enqueue_frontend_styles() {
     // Enqueue for frontend
     wp_enqueue_style( 'ats-survey-frontend-styles', plugin_dir_url( __FILE__ ) . 'ats-survey-frontend-styles.css', array(), '2.3' );
     // Conditionally add inline style for body background if the shortcode is present
@@ -211,12 +211,31 @@ function ats_enqueue_custom_styles() {
         $background_color = isset( $options['background_color'] ) ? $options['background_color'] : '#c0d7e5';
         wp_add_inline_style( 'ats-survey-frontend-styles', 'body { background-color: ' . esc_attr( $background_color ) . ' !important; }' );
     }
-
-    // Enqueue for admin
-    wp_enqueue_style( 'ats-survey-admin-styles', plugin_dir_url( __FILE__ ) . 'ats-survey-admin-styles.css', array(), '2.3' );
 }
-add_action( 'wp_enqueue_scripts', 'ats_enqueue_custom_styles' );
-add_action( 'admin_enqueue_scripts', 'ats_enqueue_custom_styles' );
+add_action( 'wp_enqueue_scripts', 'ats_enqueue_frontend_styles' );
+
+/**
+ * Enqueue custom CSS and JS for the admin area.
+ */
+function ats_enqueue_admin_scripts($hook_suffix) {
+    // Enqueue global admin styles
+    wp_enqueue_style( 'ats-survey-admin-styles', plugin_dir_url( __FILE__ ) . 'ats-survey-admin-styles.css', array(), '2.3' );
+
+    // The hook for our settings page is after-ticket-survey_page_ats-survey-settings.
+    // Only load the color picker assets on this specific page.
+    if ( 'after-ticket-survey_page_ats-survey-settings' === $hook_suffix ) {
+        // Enqueue the color picker styles and scripts
+        wp_enqueue_style( 'wp-color-picker' );
+        wp_enqueue_script(
+            'ats-color-picker',
+            plugin_dir_url( __FILE__ ) . 'ats-color-picker.js',
+            array( 'wp-color-picker' ),
+            '1.0.0',
+            true
+        );
+    }
+}
+add_action( 'admin_enqueue_scripts', 'ats_enqueue_admin_scripts' );
 
 
 /**
@@ -546,7 +565,7 @@ function ats_display_main_admin_page() {
                 <li>Go to **After Ticket Survey &rarr; Settings** in your WordPress admin sidebar.</li>
                 <li>Here, you can configure the following options:
                     <ul>
-                        <li><strong>Survey Page Background Color:</strong> Change the background color of the survey page to match your site's theme.</li>
+                        <li><strong>Survey Page Background Color:</strong> Change the background color of the survey page using an interactive color picker to match your site's theme.</li>
                         <li><strong>Ticket Number Question:</strong> Tell the plugin exactly which question asks for the ticket number. This makes the link from the results page to your ticketing system reliable, even if you change the question's text.</li>
                         <li><strong>Technician Question:</strong> Specify which "Dropdown" type question is used for technicians. This allows you to pre-fill the technician's name in the survey by adding it to the survey URL.</li>
                         <li><strong>Ticket System Base URL:</strong> Set the base URL for your ticketing system. The plugin will append the ticket ID to this URL to create a direct link to the ticket from the "View Results" page.</li>
@@ -1256,8 +1275,8 @@ add_action( 'admin_init', 'ats_register_settings' );
 function ats_setting_background_color_callback() {
     $options = get_option( 'ats_survey_options' );
     $color = isset( $options['background_color'] ) ? $options['background_color'] : '#c0d7e5';
-    echo '<input type="text" name="ats_survey_options[background_color]" value="' . esc_attr( $color ) . '" class="regular-text" />';
-    echo '<p class="description">Enter a hex code for the survey page background color.</p>';
+    echo '<input type="text" name="ats_survey_options[background_color]" value="' . esc_attr( $color ) . '" class="ats-color-picker" />';
+    echo '<p class="description">Select a background color for the survey page.</p>';
 }
 
 /**
