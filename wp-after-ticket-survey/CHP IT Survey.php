@@ -539,6 +539,22 @@ function ats_display_main_admin_page() {
             </ol>
         </div>
 
+        <div class="ats-admin-section">
+            <h3>4. Configure Your Settings</h3>
+            <p>The settings page allows you to customize how the plugin works to better fit your needs:</p>
+            <ol>
+                <li>Go to **After Ticket Survey &rarr; Settings** in your WordPress admin sidebar.</li>
+                <li>Here, you can configure the following options:
+                    <ul>
+                        <li><strong>Survey Page Background Color:</strong> Change the background color of the survey page to match your site's theme.</li>
+                        <li><strong>Ticket Number Question:</strong> Tell the plugin exactly which question asks for the ticket number. This makes the link from the results page to your ticketing system reliable, even if you change the question's text.</li>
+                        <li><strong>Technician Question:</strong> Specify which "Dropdown" type question is used for technicians. This allows you to pre-fill the technician's name in the survey by adding it to the survey URL.</li>
+                        <li><strong>Ticket System Base URL:</strong> Set the base URL for your ticketing system. The plugin will append the ticket ID to this URL to create a direct link to the ticket from the "View Results" page.</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
         <p class="ats-admin-footer">Thank you for using the After Ticket Survey plugin!</p>
     </div>
     <?php
