@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: After Ticket Survey
- * Description: A powerful and flexible WordPress plugin to create and manage after-ticket surveys. Easily customize questions, collect feedback, and view results directly from your WordPress dashboard.
- * Version:     2.16
+ * Description: A powerful and flexible WordPress plugin to create and manage after-ticket surveys. Capture submitter details, link survey results directly to tickets, and view all feedback from your WordPress dashboard.
+ * Version:     2.17
  * Author:      Philip Edwards & Gemini
  * License:     GPL2
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -72,6 +72,7 @@ function ats_install() {
 
     $sql_submissions = "CREATE TABLE $submissions_table (
         id bigint(20) NOT NULL AUTO_INCREMENT,
+        user_id bigint(20) DEFAULT 0 NOT NULL,
         submission_date datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";
@@ -199,21 +200,42 @@ function ats_install() {
 register_activation_hook( __FILE__, 'ats_install' );
 
 /**
- * Enqueue custom CSS for styling the survey form and admin pages.
+ * Enqueue custom CSS for styling the survey form on the frontend.
  */
-function ats_enqueue_custom_styles() {
+function ats_enqueue_frontend_styles() {
     // Enqueue for frontend
     wp_enqueue_style( 'ats-survey-frontend-styles', plugin_dir_url( __FILE__ ) . 'ats-survey-frontend-styles.css', array(), '2.3' );
     // Conditionally add inline style for body background if the shortcode is present
     if ( is_singular() && has_shortcode( get_post()->post_content, 'after_ticket_survey' ) ) {
-        wp_add_inline_style( 'ats-survey-frontend-styles', 'body { background-color: #c0d7e5 !important; }' );
+        $options = get_option( 'ats_survey_options' );
+        $background_color = isset( $options['background_color'] ) ? $options['background_color'] : '#c0d7e5';
+        wp_add_inline_style( 'ats-survey-frontend-styles', 'body { background-color: ' . esc_attr( $background_color ) . ' !important; }' );
     }
-
-    // Enqueue for admin
-    wp_enqueue_style( 'ats-survey-admin-styles', plugin_dir_url( __FILE__ ) . 'ats-survey-admin-styles.css', array(), '2.3' );
 }
-add_action( 'wp_enqueue_scripts', 'ats_enqueue_custom_styles' );
-add_action( 'admin_enqueue_scripts', 'ats_enqueue_custom_styles' );
+add_action( 'wp_enqueue_scripts', 'ats_enqueue_frontend_styles' );
+
+/**
+ * Enqueue custom CSS and JS for the admin area.
+ */
+function ats_enqueue_admin_scripts($hook_suffix) {
+    // Enqueue global admin styles
+    wp_enqueue_style( 'ats-survey-admin-styles', plugin_dir_url( __FILE__ ) . 'ats-survey-admin-styles.css', array(), '2.3' );
+
+    // The hook for our settings page is after-ticket-survey_page_ats-survey-settings.
+    // Only load the color picker assets on this specific page.
+    if ( 'after-ticket-survey_page_ats-survey-settings' === $hook_suffix ) {
+        // Enqueue the color picker styles and scripts
+        wp_enqueue_style( 'wp-color-picker' );
+        wp_enqueue_script(
+            'ats-color-picker',
+            plugin_dir_url( __FILE__ ) . 'ats-color-picker.js',
+            array( 'wp-color-picker' ),
+            '1.0.0',
+            true
+        );
+    }
+}
+add_action( 'admin_enqueue_scripts', 'ats_enqueue_admin_scripts' );
 
 
 /**
@@ -238,11 +260,22 @@ function ats_survey_shortcode() {
         // Fetch all active questions to validate and save
         $questions = $wpdb->get_results( "SELECT id, question_type, is_required FROM {$questions_table} ORDER BY sort_order ASC", ARRAY_A );
 
+        // Get current user, assuming they are always logged in via SSO
+        $current_user = wp_get_current_user();
+        $user_id      = $current_user->ID;
+
+
         // Insert new submission record
         $wpdb->insert(
             $submissions_table,
-            array( 'submission_date' => current_time( 'mysql' ) ),
-            array( '%s' )
+            array(
+                'user_id'         => $user_id,
+                'submission_date' => current_time( 'mysql' ),
+            ),
+            array(
+                '%d', // user_id
+                '%s'  // submission_date
+            )
         );
         $submission_id = $wpdb->insert_id;
 
@@ -282,6 +315,11 @@ function ats_survey_shortcode() {
             echo '<div class="ats-error-message">There was an error submitting your survey. Please try again.</div>';
         }
     } else {
+        // Get survey options
+        $survey_options = get_option( 'ats_survey_options' );
+        $ticket_question_id = isset( $survey_options['ticket_question_id'] ) ? (int) $survey_options['ticket_question_id'] : 0;
+        $technician_question_id = isset( $survey_options['technician_question_id'] ) ? (int) $survey_options['technician_question_id'] : 0;
+
         // Get ticket_id from URL if present
         $prefill_ticket_id = isset($_GET['ticket_id']) ? sanitize_text_field($_GET['ticket_id']) : '';
         // Get tech name from URL if present
@@ -317,8 +355,8 @@ function ats_survey_shortcode() {
                         </label>
 
                         <?php if ( $question['question_type'] === 'short_text' ) :
-                            // Check if this is the 'What is your ticket number?' question and prefill
-                            if ( $question['question_text'] === 'What is your ticket number?' && ! empty( $prefill_ticket_id ) ) {
+                            // Check if this is the ticket number question and prefill
+                            if ( $question['id'] == $ticket_question_id && ! empty( $prefill_ticket_id ) ) {
                                 $input_value = esc_attr( $prefill_ticket_id );
                             }
                         ?>
@@ -345,8 +383,8 @@ function ats_survey_shortcode() {
                             <select id="<?php echo esc_attr( $input_id ); ?>" name="<?php echo esc_attr( $input_name ); ?>" class="ats-input ats-dropdown" <?php echo $required_attr; ?>>
                                 <option value="">-- Select --</option>
                                 <?php foreach ( $options as $option ) :
-                                    // Check if this is the 'Who was your technician for this ticket?' question and prefill
-                                    if ( $question['question_text'] === 'Who was your technician for this ticket?' && ! empty( $prefill_tech_name ) ) {
+                                    // Check if this is the technician question and prefill
+                                    if ( $question['id'] == $technician_question_id && ! empty( $prefill_tech_name ) ) {
                                         if ( strtolower( $option['option_value'] ) === strtolower( $prefill_tech_name ) ) {
                                             $selected_attr = 'selected';
                                         } else {
@@ -427,6 +465,16 @@ function ats_admin_menu() {
         'ats-manage-submissions',
         'ats_display_manage_submissions_page'
     );
+
+    // Add new submenu for settings
+    add_submenu_page(
+        'ats-survey-main',
+        'After Ticket Survey Settings',
+        'Settings',
+        'manage_options',
+        'ats-survey-settings',
+        'ats_display_settings_page'
+    );
 }
 add_action( 'admin_menu', 'ats_admin_menu' );
 
@@ -485,18 +533,18 @@ function ats_display_main_admin_page() {
             <h3>2. Manage Your Survey Questions</h3>
             <p>You have full control over the questions in your survey. To add new questions, edit existing ones, or remove questions:</p>
             <ol>
-                <li>Go to **After Ticket Survey &rarr; Manage Questions** in your WordPress admin sidebar.</li>
+                <li>Go to <strong>After Ticket Survey &rarr; Manage Questions</strong> in your WordPress admin sidebar.</li>
                 <li>Here, you'll see a list of all your current survey questions.</li>
                 <li>Use the "Add New Question" form to create new questions. You can choose from different types:
                     <ul>
-                        <li>**Short Text:** For brief answers like a ticket number or a single word.</li>
-                        <li>**Long Text:** For detailed feedback or comments.</li>
-                        <li>**Rating (1-5):** For questions requiring a numerical rating (e.g., satisfaction level).</li>
-                        <li>**Dropdown:** For questions with predefined options, like a list of technicians.</li>
+                        <li><strong>Short Text:</strong> For brief answers like a ticket number or a single word.</li>
+                        <li><strong>Long Text:</strong> For detailed feedback or comments.</li>
+                        <li><strong>Rating (1-5):</strong> For questions requiring a numerical rating (e.g., satisfaction level).</li>
+                        <li><strong>Dropdown:</strong> For questions with predefined options, like a list of technicians.</li>
                     </ul>
                 </li>
                 <li>For "Dropdown" questions, remember to enter your options separated by commas (e.g., "Option 1, Option 2").</li>
-                <li>You can also **Edit** or **Delete** existing questions using the buttons next to each question in the table.</li>
+                <li>You can also <strong>Edit</strong> or <strong>Delete</strong> existing questions using the buttons next to each question in the table.</li>
             </ol>
         </div>
 
@@ -504,10 +552,43 @@ function ats_display_main_admin_page() {
             <h3>3. View Survey Results</h3>
             <p>Once users start submitting surveys, you can view all the collected feedback:</p>
             <ol>
-                <li>Go to **After Ticket Survey &rarr; View Results** in your WordPress admin sidebar.</li>
+                <li>Go to <strong>After Ticket Survey &rarr; View Results</strong> in your WordPress admin sidebar.</li>
                 <li>This page will display a table with all survey submissions, showing each user's answers to your questions.</li>
-                <li>*(Note: The "View Results" page is currently a basic display. Future updates may include advanced filtering and export options.)*</li>
+                <li><em>(Note: The "View Results" page is currently a basic display. Future updates may include advanced filtering and export options.)</em></li>
             </ol>
+        </div>
+
+        <div class="ats-admin-section">
+            <h3>4. Configure Your Settings</h3>
+            <p>The settings page allows you to customize how the plugin works to better fit your needs:</p>
+            <ol>
+                <li>Go to <strong>After Ticket Survey &rarr; Settings</strong> in your WordPress admin sidebar.</li>
+                <li>Here, you can configure the following options:
+                    <ul>
+                        <li><strong>Survey Page Background Color:</strong> Change the background color of the survey page using an interactive color picker to match your site's theme.</li>
+                        <li><strong>Ticket Number Question:</strong> Tell the plugin exactly which question asks for the ticket number. This makes the link from the results page to your ticketing system reliable, even if you change the question's text.</li>
+                        <li><strong>Technician Question:</strong> Specify which "Dropdown" type question is used for technicians. This allows you to pre-fill the technician's name in the survey by adding it to the survey URL.</li>
+                        <li><strong>Ticket System Base URL:</strong> Set the base URL for your ticketing system. The plugin will append the ticket ID to this URL to create a direct link to the ticket from the "View Results" page.</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="ats-admin-section">
+            <h3>5. Pre-filling Survey Data via URL</h3>
+            <p>You can pre-fill the ticket number and technician fields by adding parameters to your survey URL. This is ideal for including in email notifications from your helpdesk system.</p>
+            <p>The following parameters are supported:</p>
+            <ul>
+                <li><code>ticket_id</code>: This will populate the field you designated as the "Ticket Number Question".</li>
+                <li><code>tech</code>: This will pre-select the value in the "Technician Question" dropdown. The value must match one of the options exactly (e.g., "Philip Edwards").</li>
+            </ul>
+            <p><strong>Constructing the URL:</strong></p>
+            <p>If your survey URL does not contain a question mark (<code>?</code>), add the first parameter with a <code>?</code> and subsequent parameters with an ampersand (<code>&amp;</code>).</p>
+            <pre><code>https://yourwebsite.com/survey-page/?ticket_id=12345&amp;tech=John%20Doe</code></pre>
+            <p><strong>Example for Email Templates:</strong></p>
+            <p>You can use placeholders from your helpdesk system to build the link dynamically. Here is an example of a call-to-action button for an email template:</p>
+            <pre><code>&lt;a style="padding: 10px 20px;background-color: #820024;color: #ffffff;text-decoration: none;border-radius: 4px;font-weight: bold;font-family: Arial, sans-serif" href="[your_survey_url]?ticket_id=[ticket_id_placeholder]&amp;amp;tech=[agent_name_placeholder]"&gt; Satisfaction Survey &lt;/a&gt;</code></pre>
+            <p><em><strong>Note:</strong> Replace the `[placeholder]` values with the actual placeholders provided by your helpdesk system. Be sure to use <code>&amp;amp;</code> for the second parameter in HTML links. For this functionality to work, you must first configure the "Ticket Number Question" and "Technician Question" on the <strong>After Ticket Survey &rarr; Settings</strong> page.</em></p>
         </div>
 
         <p class="ats-admin-footer">Thank you for using the After Ticket Survey plugin!</p>
@@ -652,11 +733,25 @@ function ats_display_manage_questions_page() {
 /**
  * Helper function to summarize long question text for a cleaner results table.
  *
- * @param string $question_text The full question text.
+ * @param array $question The question array containing id and text.
  * @return string The summarized question text.
  */
-function ats_get_summarized_question_text( $question_text ) {
-    switch ( $question_text ) {
+function ats_get_summarized_question_text( $question ) {
+    // Get survey options for dynamic question summaries
+    $survey_options = get_option( 'ats_survey_options' );
+    $ticket_question_id = isset( $survey_options['ticket_question_id'] ) ? (int) $survey_options['ticket_question_id'] : 0;
+    $technician_question_id = isset( $survey_options['technician_question_id'] ) ? (int) $survey_options['technician_question_id'] : 0;
+
+    // Prioritize checking by ID from settings
+    if ( $ticket_question_id > 0 && $question['id'] == $ticket_question_id ) {
+        return 'Ticket #';
+    }
+    if ( $technician_question_id > 0 && $question['id'] == $technician_question_id ) {
+        return 'Technician';
+    }
+
+    // Fallback to text-based matching for backward compatibility and other default questions
+    switch ( $question['question_text'] ) {
         case 'What is your ticket number?':
             return 'Ticket #';
         case 'Who was your technician for this ticket?':
@@ -675,7 +770,7 @@ function ats_get_summarized_question_text( $question_text ) {
             return 'Comments';
         default:
             // Fallback for new questions, summarize to the first few words
-            $words = explode(' ', $question_text);
+            $words = explode(' ', $question['question_text']);
             return implode(' ', array_slice($words, 0, 3)) . '...';
     }
 }
@@ -694,13 +789,19 @@ function ats_display_view_results_page() {
     $submissions_table = $wpdb->prefix . $ats_survey_submissions_table_name;
     $answers_table     = $wpdb->prefix . $ats_survey_answers_table_name;
 
+    // Get survey options
+    $survey_options = get_option( 'ats_survey_options' );
+    $ticket_question_id = isset( $survey_options['ticket_question_id'] ) ? (int) $survey_options['ticket_question_id'] : 0;
+    $ticket_url_base = isset( $survey_options['ticket_url'] ) ? $survey_options['ticket_url'] : admin_url( 'admin.php?page=wpsc-tickets&thread_id=' );
+
     // Fetch all questions to use as headers and to map answers
     $questions = $wpdb->get_results( "SELECT id, question_text, question_type FROM {$questions_table} ORDER BY sort_order ASC", ARRAY_A );
 
-    // Fetch all submissions
-    $submissions = $wpdb->get_results( "SELECT id, submission_date FROM {$submissions_table} ORDER BY submission_date DESC", ARRAY_A );
+    // Fetch all submissions, now including the user ID
+    $submissions = $wpdb->get_results( "SELECT id, user_id, submission_date FROM {$submissions_table} ORDER BY submission_date DESC", ARRAY_A );
 
-    $total_columns = count($questions) + 2; // ID, Date, and all questions
+    // Adjust total columns for the new "Submitted by" column
+    $total_columns = count($questions) + 3; // ID, Date, Submitted by, and all questions
     $grid_template_parts = array();
     for ($i = 0; $i < $total_columns - 1; $i++) {
         $grid_template_parts[] = 'auto';
@@ -758,6 +859,7 @@ function ats_display_view_results_page() {
                 <div class="ats-results-header">
                     <div class="ats-results-cell"><strong>ID</strong></div>
                     <div class="ats-results-cell"><strong>Date</strong></div>
+                    <div class="ats-results-cell"><strong>Submitted by</strong></div>
                     <?php foreach ( $questions as $question ) : ?>
                         <?php
                             $header_class = '';
@@ -766,7 +868,7 @@ function ats_display_view_results_page() {
                             }
                         ?>
                         <div class="ats-results-cell <?php echo esc_attr($header_class); ?>">
-                            <strong><?php echo esc_html( ats_get_summarized_question_text( $question['question_text'] ) ); ?></strong>
+                            <strong><?php echo esc_html( ats_get_summarized_question_text( $question ) ); ?></strong>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -776,6 +878,22 @@ function ats_display_view_results_page() {
                     <div class="ats-results-row">
                         <div class="ats-results-cell"><?php echo esc_html( $submission['id'] ); ?></div>
                         <div class="ats-results-cell"><?php echo esc_html( $submission['submission_date'] ); ?></div>
+                        <div class="ats-results-cell">
+                            <?php
+                                $user_info_text = 'N/A';
+                                if ( ! empty( $submission['user_id'] ) ) {
+                                    $user_data = get_userdata( $submission['user_id'] );
+                                    if ( $user_data ) {
+                                        $user_info_text = sprintf(
+                                            'Username: %s, Display Name: %s',
+                                            esc_html( $user_data->user_login ),
+                                            esc_html( $user_data->display_name )
+                                        );
+                                    }
+                                }
+                                echo $user_info_text;
+                            ?>
+                        </div>
                         <?php
                         // Fetch answers for this specific submission
                         $answers = $wpdb->get_results( $wpdb->prepare(
@@ -793,7 +911,16 @@ function ats_display_view_results_page() {
                             <div class="ats-results-cell <?php echo esc_attr($cell_class); ?>">
                                 <?php
                                     $answer_obj = isset( $answers[ $question['id'] ] ) ? $answers[ $question['id'] ] : null;
-                                    echo esc_html( $answer_obj ? $answer_obj->answer_value : '' );
+                                    $answer_value = $answer_obj ? $answer_obj->answer_value : '';
+
+                                    // Check if the current question is the ticket question and the answer is a valid number
+                                    if ( $question['id'] == $ticket_question_id && ! empty( $answer_value ) && is_numeric( $answer_value ) ) {
+                                        // Create a link to the ticketing system
+                                        $ticket_url = $ticket_url_base . intval( $answer_value );
+                                        echo '<a href="' . esc_url( $ticket_url ) . '" target="_blank">' . esc_html( $answer_value ) . '</a>';
+                                    } else {
+                                        echo esc_html( $answer_value );
+                                    }
                                 ?>
                             </div>
                         <?php endforeach; ?>
@@ -1108,3 +1235,131 @@ function ats_handle_manage_submissions() {
     exit;
 }
 add_action( 'admin_post_ats_manage_submissions', 'ats_handle_manage_submissions' );
+
+/**
+ * Register settings, sections, and fields for the settings page.
+ */
+function ats_register_settings() {
+    // Register the main setting group
+    register_setting( 'ats-survey-settings-group', 'ats_survey_options' );
+
+    // Add a section for general settings
+    add_settings_section(
+        'ats_general_settings_section',
+        'General Settings',
+        '__return_false', // No callback needed for the section description
+        'ats-survey-settings'
+    );
+
+    // Add fields to the general settings section
+    add_settings_field(
+        'ats_background_color',
+        'Survey Page Background Color',
+        'ats_setting_background_color_callback',
+        'ats-survey-settings',
+        'ats_general_settings_section'
+    );
+
+    add_settings_field(
+        'ats_ticket_question_id',
+        'Ticket Number Question',
+        'ats_setting_ticket_question_callback',
+        'ats-survey-settings',
+        'ats_general_settings_section'
+    );
+
+    add_settings_field(
+        'ats_technician_question_id',
+        'Technician Question',
+        'ats_setting_technician_question_callback',
+        'ats-survey-settings',
+        'ats_general_settings_section'
+    );
+
+    add_settings_field(
+        'ats_ticket_url',
+        'Ticket System Base URL',
+        'ats_setting_ticket_url_callback',
+        'ats-survey-settings',
+        'ats_general_settings_section'
+    );
+}
+add_action( 'admin_init', 'ats_register_settings' );
+
+/**
+ * Callback function to render the background color setting field.
+ */
+function ats_setting_background_color_callback() {
+    $options = get_option( 'ats_survey_options' );
+    $color = isset( $options['background_color'] ) ? $options['background_color'] : '#c0d7e5';
+    echo '<input type="text" name="ats_survey_options[background_color]" value="' . esc_attr( $color ) . '" class="ats-color-picker" />';
+    echo '<p class="description">Select a background color for the survey page.</p>';
+}
+
+/**
+ * Callback function to render the ticket question setting field.
+ */
+function ats_setting_ticket_question_callback() {
+    global $wpdb;
+    global $ats_questions_table_name;
+    $questions_table = $wpdb->prefix . $ats_questions_table_name;
+    $questions = $wpdb->get_results( "SELECT id, question_text FROM {$questions_table} ORDER BY sort_order ASC", ARRAY_A );
+    $options = get_option( 'ats_survey_options' );
+    $selected_question = isset( $options['ticket_question_id'] ) ? $options['ticket_question_id'] : '';
+
+    echo '<select name="ats_survey_options[ticket_question_id]">';
+    echo '<option value="">-- Select a Question --</option>';
+    foreach ( $questions as $question ) {
+        echo '<option value="' . esc_attr( $question['id'] ) . '" ' . selected( $selected_question, $question['id'], false ) . '>' . esc_html( $question['question_text'] ) . '</option>';
+    }
+    echo '</select>';
+    echo '<p class="description">Select the question that asks for the ticket number.</p>';
+}
+
+/**
+ * Callback function to render the technician question setting field.
+ */
+function ats_setting_technician_question_callback() {
+    global $wpdb;
+    global $ats_questions_table_name;
+    $questions_table = $wpdb->prefix . $ats_questions_table_name;
+    $questions = $wpdb->get_results( "SELECT id, question_text FROM {$questions_table} WHERE question_type = 'dropdown' ORDER BY sort_order ASC", ARRAY_A );
+    $options = get_option( 'ats_survey_options' );
+    $selected_question = isset( $options['technician_question_id'] ) ? $options['technician_question_id'] : '';
+
+    echo '<select name="ats_survey_options[technician_question_id]">';
+    echo '<option value="">-- Select a Question --</option>';
+    foreach ( $questions as $question ) {
+        echo '<option value="' . esc_attr( $question['id'] ) . '" ' . selected( $selected_question, $question['id'], false ) . '>' . esc_html( $question['question_text'] ) . '</option>';
+    }
+    echo '</select>';
+    echo '<p class="description">Select the question that asks for the technician.</p>';
+}
+
+/**
+ * Callback function to render the ticket URL setting field.
+ */
+function ats_setting_ticket_url_callback() {
+    $options = get_option( 'ats_survey_options' );
+    $url = isset( $options['ticket_url'] ) ? $options['ticket_url'] : admin_url( 'admin.php?page=wpsc-tickets&thread_id=' );
+    echo '<input type="text" name="ats_survey_options[ticket_url]" value="' . esc_attr( $url ) . '" class="regular-text" />';
+    echo '<p class="description">Enter the base URL for linking to a ticket. The ticket ID will be appended to this URL.</p>';
+}
+
+/**
+ * Display the settings page.
+ */
+function ats_display_settings_page() {
+    ?>
+    <div class="wrap">
+        <h1>After Ticket Survey Settings</h1>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields( 'ats-survey-settings-group' );
+            do_settings_sections( 'ats-survey-settings' );
+            submit_button();
+            ?>
+        </form>
+    </div>
+    <?php
+}
